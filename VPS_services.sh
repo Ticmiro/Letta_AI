@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #------------------------------------------------------------------
-# KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN
+# KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN (v3.0 - Final Corrected)
 # Tác giả: Ticmiro & Gemini
 # Chức năng:
-# - Cài đặt tùy chọn: PostgreSQL+pgvector, Puppeteer API, Crawl4AI API.
-# - Sử dụng 100% mã nguồn và cấu hình đã được cung cấp.
-# - Tự động hóa toàn bộ quá trình tạo tệp và triển khai Docker.
+# - Giữ nguyên 100% mã nguồn gốc, dễ đọc.
+# - Sửa lỗi "docker-compose command not found".
+# - Thêm bảng tổng hợp thông tin đăng nhập và API sau khi cài đặt.
 #------------------------------------------------------------------
 
 # --- Tiện ích ---
@@ -26,6 +26,14 @@ read -p "Bạn có muốn cài đặt Dịch vụ API Crawl4AI (có VNC) không?
 # --- 2. THU THẬP CÁC THÔNG TIN CẤU HÌNH ---
 echo -e "${YELLOW}Vui lòng cung cấp các thông tin cấu hình cần thiết:${NC}"
 
+# Khởi tạo biến
+POSTGRES_USER=""
+POSTGRES_PASSWORD=""
+POSTGRES_DB=""
+OPENAI_API_KEY=""
+CRAWL_API_KEY=""
+VNC_PASSWORD=""
+
 if [[ $INSTALL_POSTGRES == "y" ]]; then
     read -p "Nhập tên cho PostgreSQL User (ví dụ: ticmiro2): " POSTGRES_USER
     read -s -p "Nhập mật khẩu cho PostgreSQL User: " POSTGRES_PASSWORD
@@ -44,34 +52,15 @@ fi
 echo "------------------------------------------------------------------"
 echo -e "${YELLOW}Bắt đầu tạo tệp và cài đặt... Thao tác này có thể mất vài phút.${NC}"
 
-# Tạo thư mục dự án chính
 mkdir -p my-services-stack
 cd my-services-stack
 
-# Chuỗi để xây dựng docker-compose.yml động
-DOCKER_COMPOSE_CONTENT="version: '3.8'
-
-services:"
+DOCKER_COMPOSE_CONTENT="version: '3.8'\n\nservices:"
 
 # --- Cấu hình cho PostgreSQL ---
 if [[ $INSTALL_POSTGRES == "y" ]]; then
     echo "=> Đang cấu hình cho PostgreSQL..."
-    DOCKER_COMPOSE_CONTENT+=
-"
-  postgres_db:
-    image: pgvector/pgvector:pg16
-    container_name: postgres_db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - \"5432:5432\"
-    networks:
-      - my-app-network
-    restart: always"
+    DOCKER_COMPOSE_CONTENT+="\n  postgres_db:\n    image: pgvector/pgvector:pg16\n    container_name: postgres_db\n    environment:\n      POSTGRES_USER: ${POSTGRES_USER}\n      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}\n      POSTGRES_DB: ${POSTGRES_DB}\n    volumes:\n      - postgres_data:/var/lib/postgresql/data\n    ports:\n      - \"5432:5432\"\n    networks:\n      - my-app-network\n    restart: always"
 fi
 
 # --- Cấu hình cho Dịch vụ Puppeteer ---
@@ -79,7 +68,6 @@ if [[ $INSTALL_PUPPETEER == "y" ]]; then
     echo "=> Đang tạo các tệp cho Dịch vụ Puppeteer..."
     mkdir -p puppeteer-api
     
-    # Tạo Dockerfile cho Puppeteer từ tệp bạn cung cấp
     cat <<'EOF' > puppeteer-api/Dockerfile
 # Sử dụng image chính thức của Puppeteer
 FROM ghcr.io/puppeteer/puppeteer:22.10.0
@@ -112,7 +100,6 @@ COPY --chown=pptruser:pptruser . .
 CMD ["npm", "start"]
 EOF
 
-    # Tạo package.json cho Puppeteer
     cat <<'EOF' > puppeteer-api/package.json
 {
   "name": "puppeteer-n8n-server",
@@ -129,7 +116,6 @@ EOF
 }
 EOF
 
-    # Tạo tệp index.js từ tệp bạn cung cấp
     cat <<'EOF' > puppeteer-api/index.js
 const express = require('express');
 const puppeteer = require('puppeteer');
@@ -241,23 +227,13 @@ app.listen(port, () => {
 });
 EOF
 
-    DOCKER_COMPOSE_CONTENT+=
-"
-  puppeteer_api:
-    build: ./puppeteer-api
-    container_name: puppeteer_api
-    ports:
-      - \"3000:3000\"
-    networks:
-      - my-app-network
-    restart: always"
+    DOCKER_COMPOSE_CONTENT+="\n  puppeteer_api:\n    build: ./puppeteer-api\n    container_name: puppeteer_api\n    ports:\n      - \"3000:3000\"\n    networks:\n      - my-app-network\n    restart: always"
 fi
 
 # --- Cấu hình cho Dịch vụ Crawl4AI ---
 if [[ $INSTALL_CRAWL4AI == "y" ]]; then
     echo "=> Đang tạo các tệp cho Dịch vụ Crawl4AI..."
-    # Cài đặt VNC
-    sudo apt-get update && sudo apt-get install -y xfce4 xfce4-goodies dbus-x11 tigervnc-standalone-server
+    sudo apt-get update > /dev/null 2>&1 && sudo apt-get install -y xfce4 xfce4-goodies dbus-x11 tigervnc-standalone-server > /dev/null 2>&1
     mkdir -p ~/.vnc
     echo "$VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd
     chmod 600 ~/.vnc/passwd
@@ -268,8 +244,6 @@ unset DBUS_SESSION_BUS_ADDRESS
 exec startxfce4
 EOF
     chmod +x ~/.vnc/xstartup
-
-    # Tạo thư mục và các tệp dự án
     mkdir -p crawl4ai-api
     cat <<'EOF' > crawl4ai-api/Dockerfile
 FROM python:3.10-slim
@@ -386,53 +360,59 @@ async def restart_server():
     return {"message": "Server is restarting..."}
 EOF
 
-    DOCKER_COMPOSE_CONTENT+=
-"
-  crawl4ai_api:
-    build: ./crawl4ai-api
-    container_name: crawl4ai_api
-    init: true
-    ports:
-      - \"8000:8000\"
-    env_file:
-      - ./crawl4ai-api/.env
-    shm_size: '2g'
-    environment:
-      - DISPLAY=:1
-    volumes:
-      - ./crawl4ai_output:/app/output
-      - crawler-profiles:/root/.crawl4ai/profiles
-      - /tmp/.X11-unix:/tmp/.X11-unix
-      - /var/run/dbus:/var/run/dbus
-    networks:
-      - my-app-network
-    restart: unless-stopped"
+    DOCKER_COMPOSE_CONTENT+="\n  crawl4ai_api:\n    build: ./crawl4ai-api\n    container_name: crawl4ai_api\n    init: true\n    ports:\n      - \"8000:8000\"\n    env_file:\n      - ./crawl4ai-api/.env\n    shm_size: '2g'\n    environment:\n      - DISPLAY=:1\n    volumes:\n      - ./crawl4ai_output:/app/output\n      - crawler-profiles:/root/.crawl4ai/profiles\n      - /tmp/.X11-unix:/tmp/.X11-unix\n      - /var/run/dbus:/var/run/dbus\n    networks:\n      - my-app-network\n    restart: unless-stopped"
 fi
 
-# --- Hoàn thiện docker-compose.yml ---
-DOCKER_COMPOSE_CONTENT+=
-"
-networks:
-  my-app-network:
-    driver: bridge
+DOCKER_COMPOSE_CONTENT+="\n\nnetworks:\n  my-app-network:\n    driver: bridge\n\nvolumes:\n  postgres_data:\n  crawler-profiles:"
 
-volumes:
-  postgres_data:
-  crawler-profiles:"
-
-# Ghi tệp docker-compose.yml cuối cùng
 echo "=> Tạo tệp docker-compose.yml tổng hợp..."
 echo -e "$DOCKER_COMPOSE_CONTENT" > docker-compose.yml
 
 # --- 4. TRIỂN KHAI HỆ THỐNG ---
 echo "------------------------------------------------------------------"
 echo -e "${YELLOW}Bắt đầu build và khởi chạy các dịch vụ... Quá trình này có thể mất vài phút.${NC}"
-sudo docker-compose up -d --build
+sudo docker compose up -d --build
 
 # --- 5. HƯỚNG DẪN CUỐI CÙNG ---
 echo "=================================================================="
 echo -e "${GREEN}🚀 CÀI ĐẶT HOÀN TẤT! 🚀${NC}"
 echo "Các dịch vụ bạn chọn đã được triển khai thành công."
+
+echo ""
+echo -e "${RED}##################################################################"
+echo -e "${RED}#                                                                #"
+echo -e "${RED}#      THÔNG TIN QUAN TRỌNG - HÃY LƯU LẠI NGAY LẬP TỨC           #"
+echo -e "${RED}#                                                                #"
+echo -e "${RED}##################################################################${NC}"
+echo ""
+echo -e "Các thông tin đăng nhập và API key này sẽ ${YELLOW}KHÔNG${NC} được hiển thị lại."
+echo -e "Hãy sao chép và cất giữ ở nơi an toàn ${RED}TRƯỚC KHI${NC} đóng cửa sổ terminal này."
+echo ""
+
+if [[ $INSTALL_POSTGRES == "y" ]]; then
+echo -e "${GREEN}--- 🐘 Thông tin kết nối PostgreSQL ---${NC}"
+echo -e "  Host:             <IP_CUA_BAN>"
+echo -e "  Port:             5432"
+echo -e "  Database:         ${YELLOW}${POSTGRES_DB}${NC}"
+echo -e "  User:             ${YELLOW}${POSTGRES_USER}${NC}"
+echo -e "  Password:         ${RED}${POSTGRES_PASSWORD}${NC}"
+echo ""
+fi
+
+if [[ $INSTALL_PUPPETEER == "y" ]]; then
+echo -e "${GREEN}---  puppeteer Thông tin API Puppeteer ---${NC}"
+echo -e "  Endpoint:         ${YELLOW}http://<IP_CUA_BAN>:3000/scrape${NC}"
+echo -e "  Method:           POST"
+echo ""
+fi
+
+if [[ $INSTALL_CRAWL4AI == "y" ]]; then
+echo -e "${GREEN}--- 🕷️ Thông tin API Crawl4AI ---${NC}"
+echo -e "  Endpoint:         ${YELLOW}http://<IP_CUA_BAN>:8000${NC}"
+echo -e "  Header Name:      x-api-key"
+echo -e "  Header Value:     ${RED}${CRAWL_API_KEY}${NC}"
+echo ""
+fi
 
 if [[ $INSTALL_CRAWL4AI == "y" ]]; then
     echo ""
