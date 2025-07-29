@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #------------------------------------------------------------------
-# KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN (v3.2 - Stable YAML Gen)
+# KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN (v4.0 - Final Bugfix)
 # Tác giả: Ticmiro & Gemini
 # Chức năng:
-# - Sửa lỗi tạo tệp docker-compose.yml bằng phương pháp ghi trực tiếp.
+# - Sử dụng phiên bản mã nguồn đầy đủ, không rút gọn để đảm bảo không có lỗi cú pháp.
 # - Giữ nguyên toàn bộ tính năng và giao diện người dùng.
 #------------------------------------------------------------------
 
@@ -37,7 +37,6 @@ read -p "Bạn có muốn cài đặt Dịch vụ API Puppeteer không? (y/n): "
 read -p "Bạn có muốn cài đặt Dịch vụ API Crawl4AI (có VNC) không? (y/n): " INSTALL_CRAWL4AI
 
 # --- 2. THU THẬP CÁC THÔNG TIN CẤU HÌNH ---
-# ... (Phần này giữ nguyên) ...
 echo -e "${YELLOW}Vui lòng cung cấp các thông tin cấu hình cần thiết:${NC}"
 POSTGRES_USER=""
 POSTGRES_PASSWORD=""
@@ -63,9 +62,8 @@ echo "------------------------------------------------------------------"
 echo -e "${YELLOW}Bắt đầu tạo tệp và cài đặt... Thao tác này có thể mất vài phút.${NC}"
 mkdir -p my-services-stack && cd my-services-stack
 
-# --- PHƯƠNG PHÁP TẠO DOCKER-COMPOSE.YML MỚI, ỔN ĐỊNH HƠN ---
+# --- PHƯƠNG PHÁP TẠO DOCKER-COMPOSE.YML ỔN ĐỊNH ---
 echo "=> Tạo tệp docker-compose.yml..."
-# Khởi tạo tệp
 echo "version: '3.8'" > docker-compose.yml
 echo "services:" >> docker-compose.yml
 
@@ -93,7 +91,6 @@ fi
 if [[ $INSTALL_PUPPETEER == "y" ]]; then
     echo "=> Đang tạo các tệp cho Dịch vụ Puppeteer..."
     mkdir -p puppeteer-api
-    # (Tạo các tệp Dockerfile, package.json, index.js như cũ)
     cat <<'EOF' > puppeteer-api/Dockerfile
 FROM ghcr.io/puppeteer/puppeteer:22.10.0
 USER root
@@ -106,10 +103,100 @@ COPY --chown=pptruser:pptruser . .
 CMD ["npm", "start"]
 EOF
     cat <<'EOF' > puppeteer-api/package.json
-{"name":"puppeteer-n8n-server","version":"1.0.0","description":"A Puppeteer server for n8n.","main":"index.js","scripts":{"start":"node index.js"},"dependencies":{"express":"^4.19.2","puppeteer":"^22.12.1"}}
+{
+  "name": "puppeteer-n8n-server",
+  "version": "1.0.0",
+  "description": "A Puppeteer server for n8n.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "puppeteer": "^22.12.1"
+  }
+}
 EOF
     cat <<'EOF' > puppeteer-api/index.js
-const express=require("express"),puppeteer=require("puppeteer"),app=express(),port=3e3;app.use(express.json({limit:"50mb"})),app.post("/scrape",async(e,r)=>{const{url:o,action:t="scrapeWithSelectors",options:s={}}=e.body;if(!o)return r.status(400).json({error:"URL is required"});console.log(`Nhận yêu cầu: action='${t}' cho url='${o}'`);let a=null;try{const e={headless:!0,args:["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage","--disable-gpu"]};s.proxy&&(console.log(`Đang sử dụng proxy: ${s.proxy}`),e.args.push(`--proxy-server=${s.proxy}`)),a=await puppeteer.launch(e);const n=await a.newPage();if(await n.setViewport({width:1920,height:1080}),await n.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"),await n.goto(o,{waitUntil:"networkidle2",timeout:6e4}),s.waitForSelector&&(console.log(`Đang chờ selector: "${s.waitForSelector}"`),await n.waitForSelector(s.waitForSelector,{timeout:3e4})),s.humanlike_scroll){console.log("Thực hiện hành vi giống người: Cuộn trang...");const e=()=>new Promise(e=>{let r=0;const o=100,t=setInterval(()=>{const s=document.body.scrollHeight;window.scrollBy(0,o),r+=o,r>=s&&(clearInterval(t),e())},200)});await n.evaluate(e),console.log("Đã cuộn xong trang.")}switch(t){case"scrapeWithSelectors":{if(!s.selectors||0===Object.keys(s.selectors).length)throw new Error('Hành động "scrapeWithSelectors" yêu cầu "selectors" trong options');const e=await n.evaluate(e=>{const r={};for(const o in e){const t=document.querySelector(e[o]);r[o]=t?t.innerText.trim():null}return r},s.selectors);console.log("Cào dữ liệu với selectors tùy chỉnh thành công."),r.status(200).json(e);break}case"screenshot":{const e=await n.screenshot({fullPage:!0,encoding:"base64"});console.log("Chụp ảnh màn hình thành công."),r.status(200).json({screenshot_base64:e});break}default:throw new Error(`Action không hợp lệ: ${t}`)}}catch(e){console.error(`Lỗi khi thực hiện action '${t}':`,e),r.status(500).json({error:"Failed to process request.",details:e.message})}finally{a&&await a.close()}}),app.listen(port,()=>console.log(`Puppeteer server đã sẵn sàng tại http://localhost:${port}`));
+const express = require('express');
+const puppeteer = require('puppeteer');
+const app = express();
+const port = 3000;
+app.use(express.json({ limit: '50mb' }));
+app.post('/scrape', async (req, res) => {
+    const { url, action = 'scrapeWithSelectors', options = {} } = req.body;
+    if (!url) { return res.status(400).json({ error: 'URL is required' }); }
+    console.log(`Nhận yêu cầu: action='${action}' cho url='${url}'`);
+    let browser = null;
+    try {
+        const launchOptions = {
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+        };
+        if (options.proxy) {
+            console.log(`Đang sử dụng proxy: ${options.proxy}`);
+            launchOptions.args.push(`--proxy-server=${options.proxy}`);
+        }
+        browser = await puppeteer.launch(launchOptions);
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        if (options.waitForSelector) {
+            console.log(`Đang chờ selector: "${options.waitForSelector}"`);
+            await page.waitForSelector(options.waitForSelector, { timeout: 30000 });
+        }
+        if (options.humanlike_scroll) {
+            console.log('Thực hiện hành vi giống người: Cuộn trang...');
+            await page.evaluate(async () => {
+                await new Promise((resolve) => {
+                    let totalHeight = 0;
+                    const distance = 100;
+                    const timer = setInterval(() => {
+                        const scrollHeight = document.body.scrollHeight;
+                        window.scrollBy(0, distance);
+                        totalHeight += distance;
+                        if (totalHeight >= scrollHeight) {
+                            clearInterval(timer);
+                            resolve();
+                        }
+                    }, 200);
+                });
+            });
+            console.log('Đã cuộn xong trang.');
+        }
+        switch (action) {
+            case 'scrapeWithSelectors':
+                if (!options.selectors || Object.keys(options.selectors).length === 0) {
+                    throw new Error('Hành động "scrapeWithSelectors" yêu cầu "selectors" trong options');
+                }
+                const scrapedData = await page.evaluate((selectors) => {
+                    const results = {};
+                    for (const key in selectors) {
+                        const element = document.querySelector(selectors[key]);
+                        results[key] = element ? element.innerText.trim() : null;
+                    }
+                    return results;
+                }, options.selectors);
+                console.log('Cào dữ liệu với selectors tùy chỉnh thành công.');
+                res.status(200).json(scrapedData);
+                break;
+            case 'screenshot':
+                 const imageBuffer = await page.screenshot({ fullPage: true, encoding: 'base64' });
+                 console.log('Chụp ảnh màn hình thành công.');
+                 res.status(200).json({ screenshot_base64: imageBuffer });
+                 break;
+            default:
+                throw new Error(`Action không hợp lệ: ${action}`);
+        }
+    } catch (error) {
+        console.error(`Lỗi khi thực hiện action '${action}':`, error);
+        res.status(500).json({ error: 'Failed to process request.', details: error.message });
+    } finally {
+        if (browser) { await browser.close(); }
+    }
+});
+app.listen(port, () => { console.log(`Puppeteer server đã sẵn sàng tại http://localhost:${port}`); });
 EOF
 
     cat <<EOF >> docker-compose.yml
@@ -129,7 +216,6 @@ if [[ $INSTALL_CRAWL4AI == "y" ]]; then
     echo "=> Đang tạo các tệp cho Dịch vụ Crawl4AI..."
     sudo apt-get update > /dev/null 2>&1 && sudo apt-get install -y xfce4 xfce4-goodies dbus-x11 tigervnc-standalone-server > /dev/null 2>&1
     mkdir -p ~/.vnc && echo "$VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd && chmod 600 ~/.vnc/passwd
-    # (Tạo các tệp khác của Crawl4AI như cũ)
     cat <<'EOF' > ~/.vnc/xstartup
 #!/bin/sh
 unset SESSION_MANAGER && unset DBUS_SESSION_BUS_ADDRESS && exec startxfce4
@@ -168,62 +254,82 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 EOF
+    # PHIÊN BẢN ĐẦY ĐỦ CỦA api_server.py
     cat <<'EOF' > crawl4ai-api/api_server.py
-import os,signal,asyncio
-from typing import Optional,List
-from fastapi import FastAPI,HTTPException,Header,Depends
+import os
+import signal
+import asyncio
+from typing import Optional, List
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import Response
 from pydantic import BaseModel
 from crawl4ai import AsyncWebCrawler
-from crawl4ai.async_configs import BrowserConfig,CrawlerRunConfig
+from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig
 from crawl4ai.browser_profiler import BrowserProfiler
 from dotenv import load_dotenv
-load_dotenv(),app=FastAPI()
-async def verify_api_key(x_api_key:Optional[str]=Header(None)):
-    SECRET_KEY=os.getenv("CRAWL_API_KEY")
-    if not SECRET_KEY:raise HTTPException(status_code=500,detail="API Key not configured on server")
-    if x_api_key!=SECRET_KEY:raise HTTPException(status_code=401,detail="Unauthorized: Invalid API Key")
-crawler_lock=asyncio.Lock()
-class CrawlRequest(BaseModel):url:str
-class ScreenshotRequest(BaseModel):url:str;full_page:bool=!0
-class ProfileCrawlRequest(BaseModel):url:str;profile_name:str
-@app.post("/crawl",dependencies=[Depends(verify_api_key)])
-async def simple_crawl(request:CrawlRequest):
+
+load_dotenv()
+app = FastAPI()
+
+async def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    SECRET_KEY = os.getenv("CRAWL_API_KEY")
+    if not SECRET_KEY: raise HTTPException(status_code=500, detail="API Key not configured on server")
+    if x_api_key != SECRET_KEY: raise HTTPException(status_code=401, detail="Unauthorized: Invalid API Key")
+
+crawler_lock = asyncio.Lock()
+
+class CrawlRequest(BaseModel): url: str
+class ScreenshotRequest(BaseModel): url: str; full_page: bool = True
+class ProfileCrawlRequest(BaseModel):
+    url: str
+    profile_name: str
+
+@app.post("/crawl", dependencies=[Depends(verify_api_key)])
+async def simple_crawl(request: CrawlRequest):
     async with crawler_lock:
         try:
-            browser_config=BrowserConfig(headless=!0,verbose=!1)
-            async with AsyncWebCrawler(config=browser_config)as crawler:
-                result=await crawler.arun(url=request.url)
-                if result.success:return{"success":!0,"url":result.url,"markdown":result.markdown.raw_markdown,"metadata":result.metadata}
-                raise HTTPException(status_code=400,detail=f"Crawl failed: {result.error_message}")
-        except Exception as e:raise HTTPException(status_code=500,detail=str(e))
-@app.post("/screenshot",response_class=Response,dependencies=[Depends(verify_api_key)])
-async def take_screenshot(request:ScreenshotRequest):
+            browser_config = BrowserConfig(headless=True, verbose=False)
+            async with AsyncWebCrawler(config=browser_config) as crawler:
+                result = await crawler.arun(url=request.url)
+                if result.success: return {"success": True, "url": result.url, "markdown": result.markdown.raw_markdown, "metadata": result.metadata}
+                raise HTTPException(status_code=400, detail=f"Crawl failed: {result.error_message}")
+        except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/screenshot", response_class=Response, dependencies=[Depends(verify_api_key)])
+async def take_screenshot(request: ScreenshotRequest):
     async with crawler_lock:
         try:
-            browser_config=BrowserConfig(headless=!0,verbose=!1)
-            async with AsyncWebCrawler(config=browser_config)as crawler:
-                run_config=CrawlerRunConfig(screenshot={"full_page":request.full_page})
-                result=await crawler.arun(url=request.url,config=run_config)
-                if result.success and result.screenshot:return Response(content=result.screenshot,media_type="image/png")
-                raise HTTPException(status_code=400,detail="Failed to take screenshot.")
-        except Exception as e:raise HTTPException(status_code=500,detail=str(e))
-@app.post("/crawl-with-profile",dependencies=[Depends(verify_api_key)])
-async def crawl_with_profile(request:ProfileCrawlRequest):
+            browser_config = BrowserConfig(headless=True, verbose=False)
+            async with AsyncWebCrawler(config=browser_config) as crawler:
+                run_config = CrawlerRunConfig(screenshot={"full_page": request.full_page})
+                result = await crawler.arun(url=request.url, config=run_config)
+                if result.success and result.screenshot: return Response(content=result.screenshot, media_type="image/png")
+                raise HTTPException(status_code=400, detail="Failed to take screenshot.")
+        except Exception as e: raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/crawl-with-profile", dependencies=[Depends(verify_api_key)])
+async def crawl_with_profile(request: ProfileCrawlRequest):
     async with crawler_lock:
-        profiler=BrowserProfiler()
-        profile_path=profiler.get_profile_path(request.profile_name)
-        if not profile_path or not os.path.exists(profile_path):raise HTTPException(status_code=404,detail=f"Profile '{request.profile_name}' not found.")
+        profiler = BrowserProfiler()
+        profile_path = profiler.get_profile_path(request.profile_name)
+        if not profile_path or not os.path.exists(profile_path):
+            raise HTTPException(status_code=404, detail=f"Profile '{request.profile_name}' not found.")
         try:
-            profile_browser_config=BrowserConfig(headless=!0,verbose=!1,user_data_dir=profile_path)
-            async with AsyncWebCrawler(config=profile_browser_config)as crawler:
-                run_config=CrawlerRunConfig(js_code="await new Promise(resolve => setTimeout(resolve, 5000)); return true;")
-                result=await crawler.arun(url=request.url,config=run_config)
-                if result.success:return{"success":!0,"url":result.url,"markdown":result.markdown.raw_markdown,"metadata":result.metadata}
-                raise HTTPException(status_code=400,detail=f"Crawl failed with profile: {result.error_message}")
-        except Exception as e:raise HTTPException(status_code=500,detail=str(e))
-@app.post("/restart",dependencies=[Depends(verify_api_key)])
-async def restart_server():print("INFO: Received authenticated restart request. Shutting down..."),os.kill(os.getpid(),signal.SIGINT),exit()
+            profile_browser_config = BrowserConfig(headless=True, verbose=False, user_data_dir=profile_path)
+            async with AsyncWebCrawler(config=profile_browser_config) as crawler:
+                run_config = CrawlerRunConfig(js_code="await new Promise(resolve => setTimeout(resolve, 5000)); return true;")
+                result = await crawler.arun(url=request.url, config=run_config)
+                if result.success:
+                    return {"success": True, "url": result.url, "markdown": result.markdown.raw_markdown, "metadata": result.metadata}
+                raise HTTPException(status_code=400, detail=f"Crawl failed with profile: {result.error_message}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/restart", dependencies=[Depends(verify_api_key)])
+async def restart_server():
+    print("INFO: Received authenticated restart request. Shutting down...")
+    os.kill(os.getpid(), signal.SIGINT)
+    return {"message": "Server is restarting..."}
 EOF
 
     cat <<EOF >> docker-compose.yml
@@ -267,7 +373,6 @@ echo -e "${YELLOW}Bắt đầu build và khởi chạy các dịch vụ... Quá 
 sudo docker compose up -d --build
 
 # --- 5. HƯỚNG DẪN CUỐI CÙNG ---
-# (Phần này giữ nguyên, bao gồm cả bảng tổng hợp thông tin và hướng dẫn VNC)
 echo "=================================================================="
 echo -e "${GREEN}🚀 CÀI ĐẶT HOÀN TẤT! 🚀${NC}"
 echo "Các dịch vụ bạn chọn đã được triển khai thành công."
