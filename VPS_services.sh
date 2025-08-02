@@ -1,11 +1,12 @@
 #!/bin/bash
 
 #------------------------------------------------------------------
-# KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN (v4.0 - Final Bugfix)
-# Tác giả: Ticmiro & Gemini
+# KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN (v5.0 - Auto-Install Docker)
+# Tác giả: Ticmiro
 # Chức năng:
-# - Sử dụng phiên bản mã nguồn đầy đủ, không rút gọn để đảm bảo không có lỗi cú pháp.
-# - Giữ nguyên toàn bộ tính năng và giao diện người dùng.
+# - Tự động kiểm tra và cài đặt Docker & Docker Compose nếu chưa có.
+# - Cài đặt tùy chọn: PostgreSQL+pgvector, Puppeteer API, Crawl4AI API.
+# - Giữ nguyên toàn bộ mã nguồn và tính năng trước đó.
 #------------------------------------------------------------------
 
 # --- Tiện ích ---
@@ -30,6 +31,28 @@ echo -e "${CYAN}################################################################
 echo ""
 echo -e "Nếu bạn thấy kịch bản này hữu ích, hãy tặng một ngôi sao ⭐ trên GitHub và kết nối với mình nhé!"
 echo "------------------------------------------------------------------"
+
+# --- 0. KIỂM TRA VÀ CÀI ĐẶT DOCKER (NẾU CẦN) ---
+if ! [ -x "$(command -v docker)" ]; then
+  echo -e "${YELLOW}Docker chưa được cài đặt. Bắt đầu quá trình cài đặt tự động...${NC}"
+  # Cài đặt Docker Engine và Docker Compose
+  sudo apt-get update
+  sudo apt-get install -y ca-certificates curl
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+  echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  echo -e "${GREEN}Cài đặt Docker và Docker Compose thành công!${NC}"
+else
+  echo -e "${GREEN}Docker đã được cài đặt. Bỏ qua bước cài đặt.${NC}"
+fi
+echo "------------------------------------------------------------------"
+
 
 # --- 1. HỎI NGƯỜI DÙNG VỀ CÁC DỊCH VỤ CẦN CÀI ĐẶT ---
 read -p "Bạn có muốn cài đặt PostgreSQL + pgvector không? (y/n): " INSTALL_POSTGRES
@@ -254,7 +277,6 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 EOF
-    # PHIÊN BẢN ĐẦY ĐỦ CỦA api_server.py
     cat <<'EOF' > crawl4ai-api/api_server.py
 import os
 import signal
@@ -369,7 +391,13 @@ EOF
 
 # --- 4. TRIỂN KHAI HỆ THỐNG ---
 echo "------------------------------------------------------------------"
-echo -e "${YELLOW}Bắt đầu build và khởi chạy các dịch vụ... Quá trình này có thể mất vài phút.${NC}"
+echo -e "${YELLOW}Chuẩn bị khởi chạy các dịch vụ...${NC}"
+
+# BƯỚC SỬA LỖI TỰ ĐỘNG: Làm sạch tệp docker-compose.yml
+echo "=> Đang làm sạch tệp docker-compose.yml để đảm bảo tương thích..."
+sed -i 's/\r$//' docker-compose.yml
+
+echo -e "${YELLOW}Bắt đầu build và khởi chạy... Quá trình này có thể mất vài phút.${NC}"
 sudo docker compose up -d --build
 
 # --- 5. HƯỚNG DẪN CUỐI CÙNG ---
