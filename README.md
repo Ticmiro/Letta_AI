@@ -14,3 +14,5 @@ bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/ma
 -u "my_pg_user" \
 -n "my_pg_database" \
 -c "my_postgres_container"
+lệnh cài thư viện craw4ai kèm posgrest SQL
+bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/VPS_services.sh)
