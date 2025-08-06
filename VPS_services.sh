@@ -2,7 +2,7 @@
 
 #------------------------------------------------------------------
 # KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN
-# Tác giả: Ticmiro & Gemini
+# Tác giả: Ticmiro
 # Chức năng:
 # - Cài đặt tùy chọn: PostgreSQL+pgvector, Puppeteer API, Crawl4AI API.
 # - Sử dụng 100% mã nguồn và cấu hình đã được cung cấp.
