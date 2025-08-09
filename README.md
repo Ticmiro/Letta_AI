@@ -16,4 +16,6 @@ bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/ma
 -c "my_postgres_container"
 lệnh cài thư viện craw4ai kèm posgrest SQL \
 bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/VPS_services.sh) \
-bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/lette_update_09-08-25.sh)
+bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/lette_update_09-08-25.sh) \
+lệnh cài đặt full dịch vụ \
+bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/full%20%20service.sh)
