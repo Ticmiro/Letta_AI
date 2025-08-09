@@ -2,7 +2,7 @@
 
 #------------------------------------------------------------------
 # KỊCH BẢN CÀI ĐẶT FULL-STACK HOÀN THIỆN (v9.0 - Final Full-Stack)
-# Tác giả: Ticmiro & Gemini
+# Tác giả: Ticmiro
 # Chức năng:
 # - Cài đặt tùy chọn: PostgreSQL, Puppeteer, Crawl4AI, và Letta AI (có HTTPS).
 # - Tự động hóa toàn bộ, từ cài đặt Docker đến triển khai dịch vụ.
