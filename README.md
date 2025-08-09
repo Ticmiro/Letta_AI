@@ -6,7 +6,7 @@ bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/ma
 Cách 2: Cài đặt với các tùy chọn (cho người dùng nâng cao)
 Người dùng có thể cung cấp sẵn thông tin để cài đặt nhanh hơn mà không cần phải nhập liệu.
 
-bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/Letta_AI.sh) \
+bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/Letta_AI.sh) chạy thứ 2\
 -d "letta.your-domain.com" \
 -o "sk-xxxxxxxxxxxx" \
 -l "my-super-secret-key" \
@@ -15,7 +15,7 @@ bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/ma
 -n "my_pg_database" \
 -c "my_postgres_container"
 lệnh cài thư viện craw4ai kèm posgrest SQL \
-bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/VPS_services.sh) \
+bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/VPS_services.sh)  chạy đầu tiên \
 bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/lette_update_09-08-25.sh) \
 lệnh cài đặt full dịch vụ \
 bash <(curl -sL https://raw.githubusercontent.com/Ticmiro/Letta_AI/refs/heads/main/full%20%20service.sh) \
