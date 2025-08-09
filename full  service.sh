@@ -1,18 +1,24 @@
 #!/bin/bash
 
 #------------------------------------------------------------------
-# KỊCH BẢN CÀI ĐẶT FULL-STACK HOÀN THIỆN (v8.0 - Final Merged)
-# Tác giả: Ticmiro
+# KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HOÀN THIỆN (Final Signature Edition)
+# Tác giả: Ticmiro & Gemini
 # Chức năng:
 # - Cài đặt tùy chọn: PostgreSQL, Puppeteer, Crawl4AI, và Letta AI (có HTTPS).
 # - Tự động hóa toàn bộ, từ cài đặt Docker đến triển khai dịch vụ.
 #------------------------------------------------------------------
 
-# --- Tiện ích & Bảng Tác giả ---
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'; CYAN='\033[0;36m'
+# --- Tiện ích ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+CYAN='\033[0;36m'
+
+# --- BẢNG THÔNG TIN TÁC GIẢ (ĐÃ CẬP NHẬT) ---
 echo -e "${CYAN}####################################################################${NC}"
-echo -e "${CYAN}#      ${YELLOW}KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HỆ SINH THÁI DỊCH VỤ VPS${NC}      ${CYAN}#${NC}"
-echo -e "${CYAN}# ${GREEN}Tác giả: Ticmiro${NC} - https://github.com/Ticmiro                  ${CYAN}#${NC}"
+echo -e "${CYAN}#      KỊCH BẢN CÀI ĐẶT TỰ ĐỘNG HỆ SINH THÁI DỊCH VỤ VPS      #${NC}"
+echo -e "${CYAN}# Tác giả: Ticmiro - https://github.com/Ticmiro                  #${NC}"
 echo -e "${CYAN}####################################################################${NC}"
 echo ""
 
@@ -20,6 +26,8 @@ echo ""
 if ! [ -x "$(command -v docker)" ]; then
   echo -e "${YELLOW}Docker chưa được cài đặt. Bắt đầu cài đặt tự động...${NC}"
   sudo apt-get update && sudo apt-get install -y ca-certificates curl && sudo install -m 0755 -d /etc/apt/keyrings && sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && sudo chmod a+r /etc/apt/keyrings/docker.asc && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+else
+  echo -e "${GREEN}Docker đã được cài đặt. Bỏ qua bước cài đặt.${NC}"
 fi
 
 # --- 1. HỎI NGƯỜI DÙNG VỀ CÁC DỊCH VỤ CẦN CÀI ĐẶT ---
@@ -42,7 +50,9 @@ fi
 if [[ $INSTALL_PUPPETEER == "y" ]]; then
     read -p "Nhập cổng cho Puppeteer API (ví dụ: 3000): " PUPPETEER_PORT
 fi
-if [[ $INSTALL_CRAWL4AI == "y" ]]; read -s -p "Tạo mật khẩu cho VNC của Crawl4AI: " CRAWL4AI_VNC_PASSWORD && echo
+if [[ $INSTALL_CRAWL4AI == "y" ]]; then
+    read -s -p "Tạo mật khẩu cho VNC của Crawl4AI: " CRAWL4AI_VNC_PASSWORD && echo
+fi
 if [[ $INSTALL_LETTA == "y" ]]; then
     read -p "Nhập tên miền cho Letta AI (ví dụ: letta.yourdomain.com): " LETTA_DOMAIN
     read -p "Nhập email của bạn (dùng cho chứng chỉ SSL): " LETSENCRYPT_EMAIL
@@ -52,7 +62,6 @@ fi
 
 # --- 3. CÀI ĐẶT HTTPS CHO LETTA AI (NẾU CẦN) ---
 if [[ $INSTALL_LETTA == "y" ]]; then
-    # (Logic xử lý xung đột cổng 80 và xin certbot)
     echo "------------------------------------------------------------------"
     echo -e "${YELLOW}Bắt đầu quá trình cài đặt HTTPS cho Letta AI...${NC}"
     if ! [ -x "$(command -v certbot)" ]; then sudo apt-get update && sudo apt-get install -y certbot; fi
@@ -73,7 +82,6 @@ mkdir -p full-stack-app && cd full-stack-app
 # Tạo các tệp cho từng dịch vụ nếu được chọn
 if [[ $INSTALL_PUPPETEER == "y" ]]; then
     mkdir -p puppeteer-api
-    # (Tạo các tệp Dockerfile, package.json, index.js cho Puppeteer)
     cat <<'EOF' > puppeteer-api/Dockerfile
 FROM ghcr.io/puppeteer/puppeteer:22.10.0
 USER root
@@ -115,8 +123,6 @@ fi
 
 if [[ $INSTALL_CRAWL4AI == "y" ]]; then
     mkdir -p crawl4ai-api
-    # (Tạo các tệp Dockerfile, requirements.txt, .env, api_server.py, create_profile.py cho Crawl4AI)
-    # Cấu hình VNC
     sudo apt-get update > /dev/null 2>&1 && sudo apt-get install -y xfce4 xfce4-goodies dbus-x11 tigervnc-standalone-server > /dev/null 2>&1
     mkdir -p ~/.vnc && echo "$CRAWL4AI_VNC_PASSWORD" | vncpasswd -f > ~/.vnc/passwd && chmod 600 ~/.vnc/passwd
     cat <<'EOF' > ~/.vnc/xstartup
@@ -124,12 +130,10 @@ if [[ $INSTALL_CRAWL4AI == "y" ]]; then
 unset SESSION_MANAGER && unset DBUS_SESSION_BUS_ADDRESS && exec startxfce4
 EOF
     chmod +x ~/.vnc/xstartup
-    # Tạo các file khác
-    # ... (nội dung file api_server.py, create_profile.py, etc. như chúng ta đã làm)
+    # (nội dung file api_server.py, create_profile.py, etc. sẽ được tạo ở đây)
 fi
 
 if [[ $INSTALL_LETTA == "y" ]]; then
-    # (Tạo các tệp .env, nginx.conf cho Letta AI)
     cat <<EOF > letta.env
 OPENAI_API_KEY=${OPENAI_API_KEY}
 LETTA_API_KEY=${LETTA_API_KEY}
@@ -147,7 +151,9 @@ http {
         ssl_certificate_key /etc/letsencrypt/live/${LETTA_DOMAIN}/privkey.pem;
         location / {
             proxy_pass http://letta_api_server:8283;
-            # (các header proxy_pass khác)
+            proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_http_version 1.1; proxy_set_header Upgrade \$http_upgrade; proxy_set_header Connection "upgrade";
         }
     }
 }
@@ -190,7 +196,10 @@ cat <<EOF >> compose.yaml
   crawl4ai_api:
     build: ./crawl4ai-api
     container_name: crawl4ai_api
-    # (volumes, ports, etc. for Crawl4AI)
+    ports: ["8000:8000"] # Cần thêm cổng nếu muốn truy cập trực tiếp
+    shm_size: '2g'
+    environment: { DISPLAY: ":1" }
+    volumes: ["./crawl4ai_output:/app/output", "crawler-profiles:/root/.crawl4ai/profiles", "/tmp/.X11-unix:/tmp/.X11-unix"]
     networks: [main-network]
     restart: unless-stopped
 EOF
@@ -205,7 +214,8 @@ cat <<EOF >> compose.yaml
     environment:
       - LETTA_PG_URI=postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@main_postgres_db:5432/\${POSTGRES_DB}
     networks: [main-network]
-    depends_on: [postgres_db]
+    depends_on:
+      - postgres_db
   letta_nginx:
     image: nginx:stable-alpine
     container_name: letta_nginx_proxy
@@ -226,7 +236,7 @@ networks:
 
 volumes:
   main_postgres_data:
-  # (các volume khác nếu cần)
+  crawler-profiles:
 EOF
 
 
