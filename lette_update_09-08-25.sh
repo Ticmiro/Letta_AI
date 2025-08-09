@@ -1,15 +1,13 @@
 #!/bin/bash
 
 #------------------------------------------------------------------
-# KỊCH BẢN CÀI ĐẶT LETTA AI HOÀN THIỆN (v5.0 - Ultimate Edition)
-# Tác giả: Ticmiro & Gemini
+# KỊCH BẢN CÀI ĐẶT LETTA AI HOÀN THIỆN (v6.0 - Smart Port Handling)
+# Tác giả: Ticmiro
 # Chức năng:
+# - Tự động phát hiện, dừng và khởi động lại dịch vụ chiếm cổng 80.
 # - Tự động cài đặt Docker & Docker Compose.
 # - Tự động cài đặt HTTPS với Let's Encrypt.
-# - Tự động phát hiện và sửa lỗi mạng Docker mặc định.
-# - Cho phép chỉ định mạng tùy chỉnh qua tham số.
-# - Sử dụng lệnh Docker Compose v2 (docker compose).
-# - Tự động sửa lỗi định dạng file YAML.
+# - Tự động xử lý mạng Docker và lỗi định dạng file YAML.
 #------------------------------------------------------------------
 
 # --- Tiện ích ---
@@ -57,6 +55,7 @@ fi
 echo "------------------------------------------------------------------"
 
 # --- 1. THU THẬP THÔNG TIN TỪ NGƯỜI DÙNG ---
+# (Phần thu thập thông tin giữ nguyên)
 echo -e "${GREEN}Chào mừng bạn đến với kịch bản cài đặt Letta Server tự động!${NC}"
 echo "------------------------------------------------------------------"
 [[ -z "$SERVER_HOST" ]] && read -p "Nhập tên miền hoặc IP của VPS: " SERVER_HOST
@@ -86,6 +85,7 @@ if [[ "$ENABLE_HTTPS" == "true" ]]; then
 fi
 
 # --- 2. KIỂM TRA CÁC ĐIỀU KIỆN TIÊN QUYẾT ---
+# (Phần này giữ nguyên)
 echo "------------------------------------------------------------------"
 echo -e "${YELLOW}Kiểm tra các điều kiện tiên quyết...${NC}"
 if ! docker compose version &> /dev/null && ! [ -x "$(command -v docker-compose)" ]; then
@@ -98,7 +98,8 @@ if ! docker ps --filter "name=${POSTGRES_CONTAINER_NAME}" --format '{{.Names}}' 
 fi
 echo "=> Container PostgreSQL '${POSTGRES_CONTAINER_NAME}' đã sẵn sàng."
 
-# --- 3. CÀI ĐẶT HTTPS (NẾU ĐƯỢC KÍCH HOẠT) ---
+
+# --- 3. CÀI ĐẶT HTTPS VÀ TỰ ĐỘNG XỬ LÝ XUNG ĐỘT CỔNG 80 ---
 if [[ "$ENABLE_HTTPS" == "true" ]]; then
     echo "------------------------------------------------------------------"
     echo -e "${YELLOW}Bắt đầu quá trình cài đặt HTTPS...${NC}"
@@ -106,20 +107,69 @@ if [[ "$ENABLE_HTTPS" == "true" ]]; then
         echo "=> Certbot chưa được cài đặt. Đang cài đặt..."
         sudo apt-get update && sudo apt-get install -y certbot
     fi
-    echo "=> Đang mở cổng 80 trên tường lửa (ufw) để xác thực SSL..."
-    sudo ufw allow 80/tcp
-    echo "=> Đang dừng các dịch vụ trên cổng 80 để xin chứng chỉ SSL..."
-    sudo docker stop letta_nginx_proxy > /dev/null 2>&1 || true
-    sudo docker rm letta_nginx_proxy > /dev/null 2>&1 || true
+    
+    # --- LOGIC MỚI: TỰ ĐỘNG XỬ LÝ XUNG ĐỘT CỔNG 80 ---
+    CONFLICTING_SERVICE=""
+    CONFLICTING_CONTAINER_ID=""
+    
+    echo "=> Đang kiểm tra cổng 80..."
+    # Ưu tiên kiểm tra Docker container trước
+    CONFLICTING_CONTAINER_ID=$(sudo docker ps -q -f "publish=80")
+    
+    if [ -n "$CONFLICTING_CONTAINER_ID" ]; then
+        CONFLICTING_SERVICE="docker"
+        CONFLICTING_CONTAINER_NAME=$(sudo docker inspect --format '{{.Name}}' $CONFLICTING_CONTAINER_ID | sed 's/\///')
+        echo -e "${YELLOW}Phát hiện cổng 80 đang được sử dụng bởi container Docker: ${CONFLICTING_CONTAINER_NAME}${NC}"
+        echo "=> Tạm thời dừng container này để xin chứng chỉ SSL..."
+        sudo docker stop $CONFLICTING_CONTAINER_ID
+    # Nếu không phải Docker, kiểm tra các dịch vụ hệ thống phổ biến
+    elif sudo lsof -i :80 -sTCP:LISTEN -t >/dev/null ; then
+        if sudo lsof -i :80 | grep -q "nginx"; then
+            CONFLICTING_SERVICE="nginx"
+            echo -e "${YELLOW}Phát hiện cổng 80 đang được sử dụng bởi dịch vụ Nginx của hệ thống.${NC}"
+            echo "=> Tạm thời dừng Nginx..."
+            sudo systemctl stop nginx
+        elif sudo lsof -i :80 | grep -q "apache2"; then
+            CONFLICTING_SERVICE="apache2"
+            echo -e "${YELLOW}Phát hiện cổng 80 đang được sử dụng bởi dịch vụ Apache2 của hệ thống.${NC}"
+            echo "=> Tạm thời dừng Apache2..."
+            sudo systemctl stop apache2
+        fi
+    fi
+    # --- KẾT THÚC LOGIC PHÁT HIỆN ---
+    
     echo "=> Đang xin chứng chỉ SSL cho miền ${SERVER_HOST}..."
     sudo certbot certonly --standalone -d "${SERVER_HOST}" --non-interactive --agree-tos -m "${LETSENCRYPT_EMAIL}"
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Lỗi: Không thể xin chứng chỉ SSL. Vui lòng kiểm tra lại tên miền đã trỏ về IP của VPS chưa.${NC}"
+    CERTBOT_EXIT_CODE=$?
+
+    # --- LOGIC MỚI: KHÔI PHỤC LẠI DỊCH VỤ BAN ĐẦU ---
+    if [ -n "$CONFLICTING_SERVICE" ]; then
+        echo "=> Khởi động lại dịch vụ ban đầu đã bị dừng..."
+        if [ "$CONFLICTING_SERVICE" == "docker" ]; then
+            sudo docker start $CONFLICTING_CONTAINER_ID
+            echo -e "${GREEN}=> Container ${CONFLICTING_CONTAINER_NAME} đã được khởi động lại.${NC}"
+        else
+            sudo systemctl start $CONFLICTING_SERVICE
+            echo -e "${GREEN}=> Dịch vụ ${CONFLICTING_SERVICE} đã được khởi động lại.${NC}"
+        fi
+    fi
+    # --- KẾT THÚC LOGIC KHÔI PHỤC ---
+
+    if [ $CERTBOT_EXIT_CODE -ne 0 ]; then
+        echo -e "${RED}Lỗi: Không thể xin chứng chỉ SSL. Đã khôi phục dịch vụ ban đầu. Vui lòng kiểm tra lại tên miền đã trỏ về IP của VPS chưa.${NC}"
         exit 1
     fi
     echo -e "${GREEN}=> Xin chứng chỉ SSL thành công!${NC}"
 fi
 
+
+# --- CÁC BƯỚC CÒN LẠI GIỮ NGUYÊN ---
+# ...
+# 4. XỬ LÝ MẠNG DOCKER THÔNG MINH
+# 5. TẠO TỆP CẤU HÌNH
+# 6. TRIỂN KHAI HỆ THỐNG
+# 7. HƯỚNG DẪN CUỐI CÙNG
+# ...
 # --- 4. XỬ LÝ MẠNG DOCKER THÔNG MINH ---
 echo "------------------------------------------------------------------"
 echo "=> Kiểm tra và xử lý mạng Docker..."
